@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+  <title>SaaS CRM - 初始配置</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+      background: #f0f2f5; color: #303133; padding: 28px 32px;
+    }
+    h1 { font-size: 20px; margin-bottom: 4px; }
+    .sub { color: #909399; font-size: 13px; margin-bottom: 20px; }
+    fieldset {
+      border: 1px solid #dcdfe6; border-radius: 8px;
+      padding: 16px 18px 8px; margin-bottom: 16px; background: #fff;
+    }
+    legend { font-size: 14px; font-weight: 600; padding: 0 6px; color: #409eff; }
+    .row { display: flex; gap: 12px; }
+    .field { margin-bottom: 14px; flex: 1; }
+    label { display: block; font-size: 13px; margin-bottom: 5px; color: #606266; }
+    input[type=text], input[type=password], input[type=number] {
+      width: 100%; height: 34px; padding: 0 10px; font-size: 13px;
+      border: 1px solid #dcdfe6; border-radius: 4px; outline: none;
+    }
+    input:focus { border-color: #409eff; }
+    .hint { font-size: 12px; color: #909399; margin-top: 4px; line-height: 1.5; }
+    .checkbox-line { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; font-size: 13px; }
+    #seedFields { display: none; }
+    button {
+      width: 100%; height: 40px; border: none; border-radius: 6px; cursor: pointer;
+      background: #409eff; color: #fff; font-size: 15px; margin-top: 4px;
+    }
+    button:hover { background: #66b1ff; }
+    button:disabled { background: #a0cfff; cursor: not-allowed; }
+    #error { color: #f56c6c; font-size: 13px; margin-top: 10px; min-height: 18px; text-align: center; }
+  </style>
+</head>
+<body>
+  <h1>初始配置</h1>
+  <div class="sub">首次使用需要连接公司共享 MySQL 服务器，配置仅保存在本机。</div>
+
+  <form id="form">
+    <fieldset>
+      <legend>MySQL 连接</legend>
+      <div class="row">
+        <div class="field" style="flex:2">
+          <label>主机 *</label>
+          <input type="text" id="host" placeholder="例如 192.168.1.100" required>
+        </div>
+        <div class="field">
+          <label>端口</label>
+          <input type="number" id="port" value="3306" min="1" max="65535">
+        </div>
+      </div>
+      <div class="field">
+        <label>数据库名 *</label>
+        <input type="text" id="database" value="crm_db" required>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>用户名 *</label>
+          <input type="text" id="user" value="root" required>
+        </div>
+        <div class="field">
+          <label>密码</label>
+          <input type="password" id="password">
+        </div>
+      </div>
+      <div class="field">
+        <label>共享附件目录（可选）</label>
+        <input type="text" id="uploadDir" placeholder="留空则存本机；多人共享填 UNC 路径，如 \\fileserver\crm-uploads">
+        <div class="hint">客户附件（图片/文档）默认保存在本机。多人共用且需要互相查看附件时，请填写公司文件共享目录。</div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>初始化（仅第一次部署勾选）</legend>
+      <div class="checkbox-line">
+        <input type="checkbox" id="seedEnabled">
+        <label for="seedEnabled" style="margin:0">数据库为空时，创建初始主账号</label>
+      </div>
+      <div id="seedFields">
+        <div class="row">
+          <div class="field">
+            <label>主账号用户名</label>
+            <input type="text" id="adminUsername" value="admin">
+          </div>
+          <div class="field">
+            <label>主账号密码</label>
+            <input type="text" id="adminPassword" value="Admin@123">
+          </div>
+        </div>
+        <div class="hint">主账号创建成功后请立即登录修改密码。此项仅在用户表为空时生效一次。</div>
+      </div>
+    </fieldset>
+
+    <button type="submit" id="submitBtn">保存并启动</button>
+    <div id="error"></div>
+  </form>
+
+  <script>
+    document.getElementById('seedEnabled').addEventListener('change', (e) => {
+      document.getElementById('seedFields').style.display = e.target.checked ? 'block' : 'none'
+    })
+
+    document.getElementById('form').addEventListener('submit', async (e) => {
+      e.preventDefault()
+      const btn = document.getElementById('submitBtn')
+      const errEl = document.getElementById('error')
+      errEl.textContent = ''
+      btn.disabled = true
+      btn.textContent = '正在启动服务…'
+
+      const seedEnabled = document.getElementById('seedEnabled').checked
+      const cfg = {
+        mysql: {
+          host: document.getElementById('host').value.trim(),
+          port: Number(document.getElementById('port').value) || 3306,
+          database: document.getElementById('database').value.trim(),
+          user: document.getElementById('user').value.trim(),
+          password: document.getElementById('password').value
+        },
+        uploadDir: document.getElementById('uploadDir').value.trim(),
+        seed: seedEnabled ? {
+          enabled: true,
+          adminUsername: document.getElementById('adminUsername').value.trim(),
+          adminPassword: document.getElementById('adminPassword').value
+        } : { enabled: false }
+      }
+
+      try {
+        const res = await window.desktop.saveConfig(cfg)
+        if (!res.ok) throw new Error(res.error || '保存失败')
+        // 成功后主进程会切换到启动页/主界面
+      } catch (err) {
+        errEl.textContent = err.message
+        btn.disabled = false
+        btn.textContent = '保存并启动'
+      }
+    })
+  </script>
+</body>
+</html>

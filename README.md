@@ -98,6 +98,27 @@ docker compose up -d
 
 访问 **http://localhost**（端口由 `WEB_PORT` 控制）。后端健康检查：`/actuator/health`。
 
+## Windows 桌面客户端（分发给同事使用）
+
+**架构**：Electron 壳 → 拉起本机内置后端（安装包内置裁剪版 JRE，用户无需装 Java）→ 连接**公司共享 MySQL**。多人数据一致性由共享数据库保证；客户附件默认存本机，多人互看附件需在首次配置时填写共享目录（UNC 路径）。
+
+### 构建安装包（在开发机上执行一次）
+
+```powershell
+# 前端构建 → 后端打包 → jlink 裁剪 JRE → NSIS 安装包
+powershell -ExecutionPolicy Bypass -File .\desktop\build-installer.ps1
+```
+
+产出 `desktop\dist\SaaS CRM Setup 1.0.0.exe`，直接分发给同事安装（免管理员权限，可选安装目录，自动创建桌面快捷方式）。
+
+### 同事侧使用
+
+1. 双击安装包，按向导安装
+2. 首次启动进入**配置向导**：填写公司 MySQL 地址/库名/账号密码，（可选）共享附件目录；数据库全新时可勾选"创建初始主账号"
+3. 配置保存后自动启动并进入系统；之后每次双击即用
+
+> 配置保存在本机 `%APPDATA%\saas-crm-desktop\config.json`；后端日志在 `%APPDATA%\saas-crm-desktop\logs\backend.log`，启动失败页可一键打开。
+
 ## 环境变量
 
 | 变量 | 说明 | 默认值 |
@@ -139,6 +160,10 @@ docker compose up -d
 │       ├── stores/          # Pinia 认证状态
 │       ├── router/          # 路由 + 权限守卫
 │       └── views/           # 登录/看板/客户列表/客户详情/账号管理
+├── desktop/                 # Windows 桌面客户端（Electron 壳 + 内嵌后端/JRE + NSIS 安装包）
+│   ├── main.js              # 主进程：拉起本地后端、健康检查、窗口生命周期
+│   ├── setup.html           # 首次配置向导（公司 MySQL 连接）
+│   └── build-installer.ps1  # 一键打包脚本
 ├── docker-compose.yml       # 生产一键部署（MySQL + 后端 + 前端）
 ├── .env.example             # 部署环境变量模板
 ├── tools/                   # 便携 JDK / Maven / MySQL

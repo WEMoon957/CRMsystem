@@ -107,6 +107,8 @@
     </dependencies>
 
     <build>
+        <!-- 固定产物名 crm.jar，便于桌面端打包脚本引用 -->
+        <finalName>crm</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
