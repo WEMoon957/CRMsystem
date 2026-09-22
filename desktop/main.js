@@ -138,37 +138,38 @@ function getFreePort() {
   })
 }
 
-function buildEnv(cfg, port) {
-  const mysql = cfg.mysql
-  const env = {
-    ...process.env,
-    SPRING_PROFILES_ACTIVE: 'prod',
-    SERVER_PORT: String(port),
-    MYSQL_URL: `jdbc:mysql://${mysql.host}:${mysql.port}/${mysql.database}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false`,
-    MYSQL_USER: mysql.user,
-    MYSQL_PASSWORD: mysql.password || '',
-    JWT_SECRET: cfg.jwtSecret,
-    UPLOAD_DIR: cfg.uploadDir || defaultUploadDir,
-    WEB_STATIC_DIR: frontendDir,
-    FRONTEND_ORIGIN: `http://127.0.0.1:${port}`,
-    TZ: 'Asia/Shanghai'
-  }
-  // 首次初始化主账号（仅空库生效）
-  if (cfg.seed && cfg.seed.enabled) {
-    env.SEED_ENABLED = 'true'
-    env.SEED_ADMIN_USERNAME = cfg.seed.adminUsername || 'admin'
-    env.SEED_ADMIN_PASSWORD = cfg.seed.adminPassword || 'Admin@123'
-  }
-  return env
-}
-
+/**
+ * 拉起后端。配置经命令行参数注入（Spring Boot 直接识别 --xxx= 参数，
+ * 不依赖 application.yml 中的环境变量占位符，前后端版本解耦更稳）。
+ */
 function spawnBackend(cfg, port) {
   fs.mkdirSync(logDir, { recursive: true })
   fs.mkdirSync(cfg.uploadDir || defaultUploadDir, { recursive: true })
   const logStream = fs.createWriteStream(backendLogPath, { flags: 'a' })
 
-  const child = spawn(javaExe, ['-XX:MaxRAMPercentage=75', '-jar', backendJar], {
-    env: buildEnv(cfg, port),
+  const args = [
+    '-XX:MaxRAMPercentage=75',
+    '-jar', backendJar,
+    `--server.port=${port}`,
+    `--app.upload.dir=${cfg.uploadDir || defaultUploadDir}`,
+    `--app.web.static-dir=${frontendDir}`,
+    `--app.jwt.secret=${cfg.jwtSecret}`
+  ]
+  // 首次初始化主账号（仅空库生效）
+  if (cfg.seed && cfg.seed.enabled) {
+    args.push('--app.seed.enabled=true')
+    args.push(`--app.seed.admin-username=${cfg.seed.adminUsername || 'admin'}`)
+    args.push(`--app.seed.admin-password=${cfg.seed.adminPassword || 'Admin@123'}`)
+  }
+
+  const child = spawn(javaExe, args, {
+    env: {
+      ...process.env,
+      MYSQL_URL: `jdbc:mysql://${cfg.mysql.host}:${cfg.mysql.port}/${cfg.mysql.database}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false`,
+      MYSQL_USER: cfg.mysql.user,
+      MYSQL_PASSWORD: cfg.mysql.password || '',
+      TZ: 'Asia/Shanghai'
+    },
     windowsHide: true
   })
 
