@@ -27,8 +27,10 @@ Pop-Location
 Write-Step "2/4 后端打包"
 $env:PATH = "$root\tools\jdk21\bin;$root\tools\maven\bin;$env:PATH"
 Push-Location (Join-Path $root 'backend')
-$testArg = if ($SkipTests) { '-DskipTests' } else { '' }
-mvn -q package $testArg
+$mvnArgs = @('-q', 'package')
+if ($SkipTests) { $mvnArgs += '-DskipTests' }
+& mvn @mvnArgs
+if ($LASTEXITCODE -ne 0) { throw "后端打包失败" }
 Pop-Location
 $jar = Join-Path $root 'backend\target\crm.jar'
 if (-not (Test-Path $jar)) { throw "后端产物不存在: $jar" }
@@ -36,15 +38,19 @@ if (-not (Test-Path $jar)) { throw "后端产物不存在: $jar" }
 # ---------- 3. jlink 裁剪 JRE（仅首次或强制重建）----------
 Write-Step "3/4 准备内嵌 JRE"
 $jreDir = Join-Path $desktopDir 'runtime\jre'
-if (Test-Path $jreDir) {
-    Write-Host "已存在 $jreDir，跳过 jlink（删除该目录可重建）"
+$jreMarker = Join-Path $jreDir 'windows-x64.marker'
+if ((Test-Path $jreDir) -and (Test-Path $jreMarker)) {
+    Write-Host "已存在 $jreDir，跳过 jlink（删除 desktop\runtime 可重建）"
 } else {
+    # 无标记的 JRE 可能来自其他平台，强制重建，防止把非 Windows JRE 打进安装包
+    if (Test-Path $jreDir) { Remove-Item -Recurse -Force $jreDir }
     $jlink = Join-Path $root 'tools\jdk21\bin\jlink.exe'
     if (-not (Test-Path $jlink)) { throw "未找到 JDK: $jlink（请将便携 JDK21 置于 tools\jdk21）" }
     & $jlink `
         --add-modules java.base,java.compiler,java.desktop,java.instrument,java.logging,java.management,java.management.rmi,java.naming,java.net.http,java.prefs,java.rmi,java.scripting,java.security.jgss,java.security.sasl,java.sql,java.sql.rowset,java.transaction.xa,java.xml,jdk.crypto.ec,jdk.crypto.mscapi,jdk.unsupported,jdk.zipfs `
-        --strip-debug --no-man-pages --no-header-files --compress=zip-6 `
+        --strip-debug --no-man-pages --no-header-files --compress=2 `
         --output $jreDir
+    New-Item -Path $jreMarker -ItemType File -Force | Out-Null
 }
 
 # ---------- 4. electron-builder 打包 ----------
@@ -52,6 +58,7 @@ Write-Step "4/4 electron-builder 产出 NSIS 安装包"
 Push-Location $desktopDir
 npm ci
 npx electron-builder --win nsis
+if ($LASTEXITCODE -ne 0) { throw "electron-builder 打包失败" }
 Pop-Location
 
 Write-Step "完成"
