@@ -18,8 +18,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 种子数据：仅当用户表为空（首次启动）时创建主账号、演示子账号与示例客户，
- * 方便开箱即用。生产环境可通过 --seed.skip=true 跳过。
+ * 种子数据：由 app.seed.enabled 显式开启（默认关闭），且仅当用户表为空时执行。
+ * - 始终只创建主账号（账号/密码经环境变量注入）；
+ * - 演示子账号与示例客户仅当 app.seed.demo-data=true（dev profile 默认）时插入，生产绝不播种演示数据。
  */
 @Slf4j
 @Configuration
@@ -31,6 +32,12 @@ public class DataSeeder {
     private final FollowUpMapper followUpMapper;
     private final PasswordEncoder passwordEncoder;
 
+    @Value("${app.seed.enabled:false}")
+    private boolean seedEnabled;
+
+    @Value("${app.seed.demo-data:false}")
+    private boolean demoData;
+
     @Value("${app.seed.admin-username:admin}")
     private String adminUsername;
 
@@ -40,7 +47,7 @@ public class DataSeeder {
     @Bean
     public ApplicationRunner seedRunner() {
         return args -> {
-            if (List.of(args.getSourceArgs()).contains("--seed.skip=true")) {
+            if (!seedEnabled) {
                 return;
             }
             if (userMapper.selectCount(null) > 0) {
@@ -54,6 +61,11 @@ public class DataSeeder {
             admin.setRole(User.ROLE_ADMIN);
             admin.setStatus(1);
             userMapper.insert(admin);
+            log.info("seed: admin account '{}' created", adminUsername);
+
+            if (!demoData) {
+                return;
+            }
 
             User sales = new User();
             sales.setUsername("sales01");

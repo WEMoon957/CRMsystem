@@ -1,0 +1,23 @@
+# =========================================================
+# 生产环境
+# - 敏感配置无默认值：缺失环境变量即启动失败（fail-fast）
+# - 日志只走 stdout（12-Factor），由容器平台采集
+# - 不播种任何数据；首个主账号用 SEED_ENABLED=true 初始化一次后立即关闭
+# =========================================================
+spring:
+  datasource:
+    url: ${MYSQL_URL}
+    username: ${MYSQL_USER}
+    password: ${MYSQL_PASSWORD}
+
+logging:
+  level:
+    root: WARN
+    com.saas.crm: INFO
+
+app:
+  jwt:
+    secret: ${JWT_SECRET}
+  seed:
+    enabled: ${SEED_ENABLED:false}
+    demo-data: false

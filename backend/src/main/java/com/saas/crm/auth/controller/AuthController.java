@@ -6,6 +6,7 @@ import com.saas.crm.auth.dto.UserVO;
 import com.saas.crm.auth.security.CurrentPrincipal;
 import com.saas.crm.auth.service.AuthService;
 import com.saas.crm.common.dto.ApiResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -21,8 +22,18 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/login")
-    public ApiResponse<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
-        return ApiResponse.ok(authService.login(request));
+    public ApiResponse<LoginResponse> login(@Valid @RequestBody LoginRequest request,
+                                            HttpServletRequest http) {
+        return ApiResponse.ok(authService.login(request, clientIp(http)));
+    }
+
+    /** 反向代理后取 X-Forwarded-For 首跳；直连取 remoteAddr */
+    private String clientIp(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 
     @PostMapping("/refresh")

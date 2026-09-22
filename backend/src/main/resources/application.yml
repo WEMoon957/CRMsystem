@@ -1,19 +1,33 @@
+# =========================================================
+# 公共配置（所有环境共享）
+# - 默认激活 dev profile；生产部署必须设置 SPRING_PROFILES_ACTIVE=prod
+# - 敏感项一律走环境变量，prod profile 中不带默认值（缺失即启动失败，fail-fast）
+# =========================================================
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+  compression:
+    enabled: true
+    mime-types: application/json,text/plain,text/css,application/javascript,image/svg+xml
+    min-response-size: 1KB
 
 spring:
   application:
     name: saas-crm
+  profiles:
+    default: dev
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
   datasource:
-    # 本地便携 MySQL 端口 33061；生产环境通过环境变量覆盖
     url: ${MYSQL_URL:jdbc:mysql://localhost:33061/crm_db?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false}
     username: ${MYSQL_USER:root}
     password: ${MYSQL_PASSWORD:crm_dev_2026}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
-      maximum-pool-size: 10
-      minimum-idle: 2
+      maximum-pool-size: ${DB_POOL_MAX:10}
+      minimum-idle: ${DB_POOL_MIN:2}
       connection-timeout: 10000
+      max-lifetime: 1800000
   flyway:
     enabled: true
     locations: classpath:db/migration
@@ -33,22 +47,35 @@ mybatis-plus:
       logic-delete-value: 1
       logic-not-delete-value: 0
 
+# Actuator：仅暴露健康检查与版本信息，详情不外泄
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: never
+
 logging:
-  file:
-    name: C:/Users/Administrator/WorkBuddy/2026-09-22-11-56-06/backend/logs/app.log
   level:
     root: INFO
     com.saas.crm: INFO
 
 app:
   upload:
-    dir: C:/Users/Administrator/WorkBuddy/2026-09-22-11-56-06/backend/uploads
+    # 相对路径，容器/任意 OS 均可运行；生产用 UPLOAD_DIR 覆盖并挂卷
+    dir: ${UPLOAD_DIR:./uploads}
   jwt:
     # 生产环境必须通过环境变量 JWT_SECRET 覆盖（至少 32 字节随机串）
     secret: ${JWT_SECRET:dev-only-secret-key-change-me-in-production-0123456789abcdef}
     access-token-ttl-minutes: ${JWT_ACCESS_TTL:120}
     refresh-token-ttl-days: ${JWT_REFRESH_TTL:7}
   seed:
-    # 初始种子账号（仅首次启动、表为空时创建）
-    admin-username: admin
-    admin-password: Admin@123
+    # 是否在空库时播种（创建主账号）。默认关闭，dev profile 中开启
+    enabled: ${SEED_ENABLED:false}
+    # 是否额外插入演示子账号与示例客户（永不用于生产）
+    demo-data: ${SEED_DEMO_DATA:false}
+    admin-username: ${SEED_ADMIN_USERNAME:admin}
+    admin-password: ${SEED_ADMIN_PASSWORD:Admin@123}

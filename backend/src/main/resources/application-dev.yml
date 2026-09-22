@@ -1,0 +1,14 @@
+# =========================================================
+# 开发环境（默认 profile）
+# - 本地开箱即用：播种演示数据、输出滚动文件日志
+# =========================================================
+logging:
+  level:
+    com.saas.crm: DEBUG
+  file:
+    name: ${LOG_FILE:./logs/crm.log}
+
+app:
+  seed:
+    enabled: true
+    demo-data: true
