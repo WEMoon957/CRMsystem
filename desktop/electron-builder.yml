@@ -1,0 +1,42 @@
+# electron-builder 配置：产出 Windows NSIS 安装包
+# 运行前需由 build-installer.ps1 准备好：
+#   ../backend/target/crm.jar   后端产物
+#   ../frontend/dist            前端构建产物
+#   runtime/jre                 裁剪版 JRE（jlink 产出，已 gitignore）
+appId: com.saas.crm.desktop
+productName: SaaS CRM
+copyright: Copyright © 2026
+
+directories:
+  output: dist
+
+files:
+  - main.js
+  - preload.js
+  - setup.html
+  - loading.html
+  - error.html
+  - package.json
+
+asar: true
+
+extraResources:
+  - from: ../backend/target/crm.jar
+    to: backend/crm.jar
+  - from: ../frontend/dist
+    to: frontend
+  - from: runtime/jre
+    to: jre
+
+win:
+  icon: build/icon.png
+  target: nsis
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: SaaS CRM
+  deleteAppDataOnUninstall: false

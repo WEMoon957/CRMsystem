@@ -8,6 +8,7 @@ import com.saas.crm.auth.entity.RefreshToken;
 import com.saas.crm.auth.entity.User;
 import com.saas.crm.auth.mapper.RefreshTokenMapper;
 import com.saas.crm.auth.mapper.UserMapper;
+import com.saas.crm.auth.security.LoginRateLimiter;
 import com.saas.crm.common.exception.BizException;
 import com.saas.crm.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -30,22 +31,28 @@ public class AuthService {
     private final RefreshTokenMapper refreshTokenMapper;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
+    private final LoginRateLimiter loginRateLimiter;
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Value("${app.jwt.refresh-token-ttl-days}")
     private long refreshTtlDays;
 
     @Transactional
-    public LoginResponse login(LoginRequest request) {
+    public LoginResponse login(LoginRequest request, String clientIp) {
+        String rateKey = clientIp + "|" + request.getUsername();
+        loginRateLimiter.check(rateKey);
+
         User user = userMapper.selectOne(new LambdaQueryWrapper<User>()
                 .eq(User::getUsername, request.getUsername()));
 
         if (user == null || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            loginRateLimiter.recordFailure(rateKey);
             throw new BizException(ErrorCode.USERNAME_OR_PASSWORD_ERROR);
         }
         if (!user.enabled()) {
             throw new BizException(ErrorCode.ACCOUNT_DISABLED);
         }
+        loginRateLimiter.reset(rateKey);
         return issueTokens(user);
     }
 

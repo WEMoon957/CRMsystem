@@ -15,6 +15,9 @@ public enum ErrorCode {
     NOT_FOUND(1001, "资源不存在"),
     INTERNAL(1002, "服务器内部错误"),
     FORBIDDEN(1003, "无权访问该资源"),
+    FILE_TOO_LARGE(1004, "文件大小超出限制"),
+    METHOD_NOT_ALLOWED(1005, "请求方式不支持"),
+    TOO_MANY_REQUESTS(1006, "请求过于频繁，请稍后再试"),
 
     // 认证 2xxx
     UNAUTHORIZED(2001, "未登录或登录已过期"),
@@ -22,6 +25,7 @@ public enum ErrorCode {
     ACCOUNT_DISABLED(2003, "账号已被禁用"),
     REFRESH_TOKEN_INVALID(2004, "刷新令牌无效或已过期"),
     USERNAME_EXISTS(2005, "用户名已存在"),
+    LOGIN_TOO_FREQUENT(2006, "登录尝试过于频繁，请10分钟后再试"),
 
     // 用户 3xxx
     CANNOT_DELETE_SELF(3001, "不能删除自己的账号"),
